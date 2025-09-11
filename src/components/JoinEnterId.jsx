@@ -2,7 +2,7 @@ export default function JoinEnterId({ code, onChange, onContinue, onBack }) {
   return (
     <div style={{ display: 'flex', gap: 16, alignItems: 'center', justifyContent: 'center', marginTop: 40 }}>
       <input
-        placeholder="Enter 4-letter code"
+        placeholder="Enter code"
         value={code}
         onChange={(e) => onChange(e.target.value)}
         style={{
@@ -30,20 +30,6 @@ export default function JoinEnterId({ code, onChange, onContinue, onBack }) {
         }}
       >
         Continue
-      </button>
-      <button 
-        onClick={onBack}
-        style={{
-          backgroundColor: 'white',
-          color: 'black',
-          border: '2px solid black',
-          padding: '12px 24px',
-          fontSize: '16px',
-          fontWeight: 'bold',
-          cursor: 'pointer'
-        }}
-      >
-        Back
       </button>
     </div>
   );

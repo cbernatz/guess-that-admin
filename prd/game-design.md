@@ -5,7 +5,7 @@ Guess that admin is a game where:
 3. Team members join the lobby and submit a fun fact about themselves
 4. Host starts the game
 5. A fun fact is displayed
-6. Everyone, including the host, votes on who they think it is
+6. Everyone, excluding the host, votes on who they think it is
 7. Answer is revealed by the host, players accrue a point for the right answer
 8. Move onto the next team member
 9. Game completes after all members are voted on, results displayed
