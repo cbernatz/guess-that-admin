@@ -32,4 +32,4 @@ export { db };
 
 ```
 
-2. The app will be hosted at github pages
+2. The app will be hosted at github pages at https://cbernatz.github.io/guess-that-admin/
