@@ -1,7 +1,7 @@
 import './App.css';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { db } from './firebase';
-import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, runTransaction, setDoc, updateDoc, where } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import ChooseScreen from './components/ChooseScreen';
 import JoinEnterId from './components/JoinEnterId';
 import JoinEnterFact from './components/JoinEnterFact';
@@ -22,20 +22,6 @@ function generateGameCode() {
 
 function normalizeGameCode(input) {
   return (input || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, GAME_CODE_LENGTH);
-}
-
-function createStableClientId() {
-  try {
-    let id = localStorage.getItem('gta_client_id') || '';
-    if (!id) {
-      const maybeUUID = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : '';
-      id = maybeUUID || `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-      localStorage.setItem('gta_client_id', id);
-    }
-    return id;
-  } catch (_) {
-    return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  }
 }
 
 function computeScoreboardEntries(allVotes, players) {
@@ -72,12 +58,11 @@ function App() {
   const [votesThisRound, setVotesThisRound] = useState([]);
   const [scoreboard, setScoreboard] = useState([]);
   const [winnerNames, setWinnerNames] = useState([]);
-  const [clientId, setClientId] = useState('');
+  const [playerDocId, setPlayerDocId] = useState('');
   const hasVotedThisRound = useMemo(() => {
-    if (!clientId) return false;
-    return votesThisRound.some((v) => v.voterId === clientId);
-  }, [votesThisRound, clientId]);
-  const gamesCollection = useMemo(() => collection(db, 'games'), []);
+    if (!playerDocId) return false;
+    return votesThisRound.some((v) => v.voterId === playerDocId);
+  }, [votesThisRound, playerDocId]);
   
 
   const createGame = useCallback(async () => {
@@ -113,7 +98,7 @@ function App() {
       console.error(error);
       setStatus('Failed to create game');
     }
-  }, [gamesCollection]);
+  }, []);
 
   const proceedToJoinFact = useCallback(async () => {
     try {
@@ -152,11 +137,16 @@ function App() {
         return;
       }
       setStatus('Joining game...');
-      await addDoc(collection(db, 'games', displayGameId, 'players'), {
+      const docRef = await addDoc(collection(db, 'games', displayGameId, 'players'), {
         name: nameInput.trim(),
         fact: factInput.trim(),
         joinedAt: Date.now(),
       });
+      // Persist player id for this game so we can associate votes per player
+      try {
+        localStorage.setItem(`gta_pid_${displayGameId}`, docRef.id);
+      } catch (_) {}
+      setPlayerDocId(docRef.id);
       setSubmitted(true);
       setStatus('Joined game');
     } catch (error) {
@@ -195,6 +185,7 @@ function App() {
     if (!displayGameId) {
       setPlayers([]);
       setStage('');
+      setPlayerDocId('');
       return;
     }
     const gameRef = doc(db, 'games', displayGameId);
@@ -214,6 +205,13 @@ function App() {
     const unsubPlayers = onSnapshot(playersQueryRef, (qs) => {
       const joined = qs.docs.map((d) => ({ id: d.id, ...d.data() }));
       setPlayers(joined);
+      // If we have a stored player id for this game and it's present, use it
+      try {
+        const stored = localStorage.getItem(`gta_pid_${displayGameId}`) || '';
+        if (stored && joined.some((p) => p.id === stored)) {
+          setPlayerDocId(stored);
+        }
+      } catch (_) {}
     });
     // Live votes for current round
     const votesQueryRef = query(
@@ -231,46 +229,46 @@ function App() {
     };
   }, [displayGameId, roundIndex]);
 
-  // Initialize a stable client id to prevent duplicate votes per round on this device
+  // On mount or game switch, try to hydrate the player's doc id from storage
   useEffect(() => {
-    setClientId(createStableClientId());
-  }, []);
+    try {
+      if (displayGameId) {
+        const stored = localStorage.getItem(`gta_pid_${displayGameId}`) || '';
+        if (stored) setPlayerDocId(stored);
+      }
+    } catch (_) {}
+  }, [displayGameId]);
 
   const castVote = useCallback(async (guessPlayerId) => {
     try {
       if (!displayGameId) return;
       if (isHost) return;
-      if (!clientId) return;
+      if (!playerDocId) {
+        setStatus('Join the game first');
+        return;
+      }
+      // Prevent multiple votes per player per round
       if (hasVotedThisRound) {
-        setStatus('You already voted this round');
+        setStatus('You have already voted this round');
         return;
       }
       setStatus('Submitting vote...');
-      const voteDocId = `${roundIndex}_${clientId}`;
-      await runTransaction(db, async (tx) => {
-        const voteRef = doc(db, 'games', displayGameId, 'votes', voteDocId);
-        const existing = await tx.get(voteRef);
-        if (existing.exists()) {
-          throw new Error('ALREADY_VOTED');
-        }
-        tx.set(voteRef, {
-          voterId: clientId,
-          voterName: nameInput || (isHost ? 'Host' : ''),
-          guessPlayerId,
-          roundIndex,
-          createdAt: Date.now(),
-        });
+      // Use deterministic document ID to prevent duplicates
+      const voteDocId = `${roundIndex}_${playerDocId}`;
+      const voteRef = doc(db, 'games', displayGameId, 'votes', voteDocId);
+      await setDoc(voteRef, {
+        voterId: playerDocId,
+        voterName: nameInput || (isHost ? 'Host' : ''),
+        guessPlayerId,
+        roundIndex,
+        createdAt: Date.now(),
       });
       setStatus('Vote submitted');
     } catch (error) {
       console.error(error);
-      if (error && error.message === 'ALREADY_VOTED') {
-        setStatus('You already voted this round');
-      } else {
-        setStatus('Failed to submit vote');
-      }
+      setStatus('Failed to submit vote');
     }
-  }, [displayGameId, nameInput, isHost, roundIndex, clientId, hasVotedThisRound]);
+  }, [displayGameId, nameInput, isHost, roundIndex, playerDocId, hasVotedThisRound]);
 
   const revealRound = useCallback(async () => {
     try {

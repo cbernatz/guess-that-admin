@@ -20,25 +20,32 @@ export default function VotingScreen({ roundIndex, fact, players, isHost, hasVot
         {fact || '(No fact)'}
       </blockquote>
       {!isHost ? (
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginTop: 20 }}>
-          {players.map((p) => (
-            <button 
-              key={p.id} 
-              onClick={() => onVote(p.id)} 
-              disabled={hasVoted}
-              style={{
-                backgroundColor: hasVoted ? '#ccc' : 'white',
-                color: 'black',
-                border: '2px solid black',
-                padding: '12px 20px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: hasVoted ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {p.name}
-            </button>
-          ))}
+        <div>
+          {hasVoted ? (
+            <p style={{ color: '#F1641D', fontSize: '18px', fontWeight: 'bold', marginTop: 20 }}>
+              Vote submitted! Waiting for other players...
+            </p>
+          ) : (
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginTop: 20 }}>
+              {players.map((p) => (
+                <button 
+                  key={p.id} 
+                  onClick={() => onVote(p.id)} 
+                  style={{
+                    backgroundColor: 'white',
+                    color: 'black',
+                    border: '2px solid black',
+                    padding: '12px 20px',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ textAlign: 'center', marginTop: 20 }}>
