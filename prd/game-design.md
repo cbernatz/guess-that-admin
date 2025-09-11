@@ -2,7 +2,7 @@ Guess that admin is a game where:
 
 1. A host creates a game
 2. Team members join that game
-3. Team members submit a fun about themselves
+3. Team members join the lobby and submit a fun fact about themselves
 4. Host starts the game
 5. A fun fact is displayed
 6. Everyone, including the host, votes on who they think it is
@@ -33,3 +33,11 @@ export { db };
 ```
 
 2. The app will be hosted at github pages at https://cbernatz.github.io/guess-that-admin/
+
+Design specifications include:
+
+1. Modern, clean interfaces
+2. Only blacks, whites, and hex code F1641d
+3. No animations
+4. No loading indicators
+5. No imagery
